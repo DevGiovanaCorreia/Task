@@ -3,7 +3,9 @@ import './App.css'
 
 function App() {
 
-  // Estado das tarefas
+  const [idEditando, setIdEditando] = useState(null)
+
+  
   const [tarefas, setTarefas] = useState(() => {
 
   const tarefasSalvas = localStorage.getItem('taskflow-tarefas')
@@ -32,7 +34,7 @@ useEffect(() => {
 
 }, [tarefas])
 
-  // Estado do campo de texto
+ 
   const [novaTarefa, setNovaTarefa] = useState('')
 
   const [prioridade, setPrioridade] = useState('media')
@@ -41,7 +43,7 @@ useEffect(() => {
   const [filtroStatus, setFiltroStatus] = useState('todas')
   const [filtroPrioridade, setFiltroPrioridade] = useState('todas')
 
-  // Adicionar tarefa
+  
   function adicionarTarefa(e) {
     e.preventDefault()
 
@@ -64,7 +66,7 @@ useEffect(() => {
     setPrazo('')
   }
 
-  // Concluir ou reabrir tarefa
+  
   function concluirTarefa(id) {
     setTarefas(anteriores =>
       anteriores.map(tarefa =>
@@ -75,21 +77,21 @@ useEffect(() => {
     )
   }
 
-  // Excluir tarefa
+  
   function excluirTarefa(id) {
     setTarefas(anteriores =>
       anteriores.filter(tarefa => tarefa.id !== id)
     )
   }
 
-  // Contadores
+  
   const concluidas = tarefas.filter(
     tarefa => tarefa.concluida
   ).length
 
   const pendentes = tarefas.length - concluidas
 
-  // Aplicar filtros
+  
   const tarefasFiltradas = tarefas.filter(tarefa => {
 
     const correspondeStatus =
@@ -104,6 +106,39 @@ useEffect(() => {
     return correspondeStatus && correspondePrioridade
   })
 
+  function editarTarefa(tarefa) {
+  setIdEditando(tarefa.id)
+  setNovaTarefa(tarefa.titulo)
+  setPrioridade(tarefa.prioridade)
+  setPrazo(tarefa.prazo)
+}
+
+function salvarEdicao(e) {
+  e.preventDefault()
+
+  if (!novaTarefa.trim()) {
+    return
+  }
+
+  setTarefas(anteriores =>
+    anteriores.map(tarefa =>
+      tarefa.id === idEditando
+        ? {
+            ...tarefa,
+            titulo: novaTarefa.trim(),
+            prioridade: prioridade,
+            prazo: prazo
+          }
+        : tarefa
+    )
+  )
+
+  setIdEditando(null)
+  setNovaTarefa('')
+  setPrioridade('media')
+  setPrazo('')
+}
+
   return (
      <div className="container">
 
@@ -111,9 +146,9 @@ useEffect(() => {
         <h2>TaskFlow</h2>
 
         <nav>
-          <a href="#">Dashboard</a>
-          <a href="#">Minhas tarefas</a>
-          <a href="#">Concluídas</a>
+          <a href="#dashboard">Dashboard</a>
+          <a href="#tarefas">Minhas tarefas</a>
+          
         </nav>
       </aside>
 
@@ -124,8 +159,8 @@ useEffect(() => {
           <p>Organize suas tarefas e acompanhe seu progresso.</p>
         </header>
 
-        {/* Resumo */}
-        <section className="resumo">
+      
+        <section className="resumo" id='dashboard'>
 
           <div className="card">
             <h3>Total de tarefas</h3>
@@ -144,12 +179,12 @@ useEffect(() => {
 
         </section>
 
-        {/* Cadastro */}
-        <section className="tarefas">
+       
+        <section className="tarefas" id='tarefas'>
 
           <h2>Minhas tarefas</h2>
 
-          <form onSubmit={adicionarTarefa}>
+          <form onSubmit={idEditando !== null ? salvarEdicao : adicionarTarefa}>
 
             <input
               type="text"
@@ -174,12 +209,12 @@ useEffect(() => {
             />
 
             <button type="submit">
-              + Adicionar
+              {idEditando !==null ? 'Salvar alterações' : 'Adicionar tarefa'}
             </button>
 
           </form>
 
-          {/* Filtros */}
+         
           <div className="filtros">
 
             <select
@@ -203,7 +238,7 @@ useEffect(() => {
 
           </div>
 
-          {/* Lista */}
+         
           <div className="lista-tarefas">
 
             {tarefasFiltradas.length === 0 ? (
@@ -256,6 +291,13 @@ useEffect(() => {
                     >
                       Excluir
                     </button>
+
+                    <button
+  type="button"
+  onClick={() => editarTarefa(tarefa)}
+>
+  Editar
+</button>
 
                   </div>
 
