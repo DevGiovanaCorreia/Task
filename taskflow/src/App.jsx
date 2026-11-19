@@ -1,320 +1,481 @@
-import { useState ,useEffect} from 'react'
+const API_URL = 'http://localhost:3000/api/tarefas'
+
+import { useState, useEffect } from 'react'
 import './App.css'
 
 function App() {
 
-  const [idEditando, setIdEditando] = useState(null)
+    // Estados
+    const [tarefas, setTarefas] = useState([])
+    const [carregando, setCarregando] = useState(true)
+    const [erro, setErro] = useState('')
 
-  
-  const [tarefas, setTarefas] = useState(() => {
+    const [idEditando, setIdEditando] = useState(null)
 
-  const tarefasSalvas = localStorage.getItem('taskflow-tarefas')
+    const [novaTarefa, setNovaTarefa] = useState('')
+    const [prioridade, setPrioridade] = useState('media')
+    const [prazo, setPrazo] = useState('')
 
-  if (tarefasSalvas) {
-    try {
-      const dados = JSON.parse(tarefasSalvas)
+    const [filtroStatus, setFiltroStatus] = useState('todas')
+    const [filtroPrioridade, setFiltroPrioridade] = useState('todas')
 
-      return Array.isArray(dados) ? dados : []
 
-    } catch {
-      return []
-    }
-  }
+    // Buscar tarefas no banco de dados
+    useEffect(() => {
 
-  return []
+        async function buscarTarefas() {
+            try {
+                const resposta = await fetch(API_URL)
 
-})
+                if (!resposta.ok) {
+                    throw new Error('Erro ao buscar tarefas.')
+                }
 
-useEffect(() => {
+                const dados = await resposta.json()
 
-  localStorage.setItem(
-    'taskflow-tarefas',
-    JSON.stringify(tarefas)
-  )
+                setTarefas(dados)
 
-}, [tarefas])
+            } catch (erro) {
+                 console.error('Erro ao buscar tarefas:', erro)
+    setErro(erro.message)
+            } finally {
+                setCarregando(false)
+            }
+        }
 
- 
-  const [novaTarefa, setNovaTarefa] = useState('')
+        buscarTarefas()
 
-  const [prioridade, setPrioridade] = useState('media')
-  const [prazo, setPrazo] = useState('')
+    }, [])
 
-  const [filtroStatus, setFiltroStatus] = useState('todas')
-  const [filtroPrioridade, setFiltroPrioridade] = useState('todas')
 
-  
-  function adicionarTarefa(e) {
-    e.preventDefault()
-
-    if (novaTarefa.trim() === '') {
-      return
-    }
-
-    const tarefa = {
-      id: Date.now(),
-      titulo: novaTarefa.trim(),
-      prioridade: prioridade,
-      prazo: prazo,
-      concluida: false
+    // Limpar formulário
+    function limparFormulario() {
+        setIdEditando(null)
+        setNovaTarefa('')
+        setPrioridade('media')
+        setPrazo('')
     }
 
-    setTarefas(anteriores => [...anteriores, tarefa])
 
-    setNovaTarefa('')
-    setPrioridade('media')
-    setPrazo('')
-  }
+    // Adicionar tarefa
+    async function adicionarTarefa(e) {
+        e.preventDefault()
 
-  
-  function concluirTarefa(id) {
-    setTarefas(anteriores =>
-      anteriores.map(tarefa =>
-        tarefa.id === id
-          ? { ...tarefa, concluida: !tarefa.concluida }
-          : tarefa
-      )
-    )
-  }
+        if (!novaTarefa.trim()) {
+            return
+        }
 
-  
-  function excluirTarefa(id) {
-    setTarefas(anteriores =>
-      anteriores.filter(tarefa => tarefa.id !== id)
-    )
-  }
+        try {
+            const resposta = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    titulo: novaTarefa.trim(),
+                    prioridade,
+                    prazo: prazo || null
+                })
+            })
 
-  
-  const concluidas = tarefas.filter(
-    tarefa => tarefa.concluida
-  ).length
+            if (!resposta.ok) {
+                throw new Error('Erro ao cadastrar tarefa.')
+            }
 
-  const pendentes = tarefas.length - concluidas
+            const tarefaSalva = await resposta.json()
 
-  
-  const tarefasFiltradas = tarefas.filter(tarefa => {
+            setTarefas(anteriores => [...anteriores, tarefaSalva])
 
-    const correspondeStatus =
-      filtroStatus === 'todas' ||
-      (filtroStatus === 'pendentes' && !tarefa.concluida) ||
-      (filtroStatus === 'concluidas' && tarefa.concluida)
+            limparFormulario()
 
-    const correspondePrioridade =
-      filtroPrioridade === 'todas' ||
-      tarefa.prioridade === filtroPrioridade
+        } catch (erro) {
+            console.error(erro)
+            alert('Não foi possível cadastrar a tarefa.')
+        }
+    }
 
-    return correspondeStatus && correspondePrioridade
-  })
 
-  function editarTarefa(tarefa) {
-  setIdEditando(tarefa.id)
-  setNovaTarefa(tarefa.titulo)
-  setPrioridade(tarefa.prioridade)
-  setPrazo(tarefa.prazo)
-}
+    // Concluir ou desfazer tarefa
+    async function concluirTarefa(id) {
 
-function salvarEdicao(e) {
-  e.preventDefault()
+        const tarefaAtual = tarefas.find(tarefa => tarefa.id === id)
 
-  if (!novaTarefa.trim()) {
-    return
-  }
+        if (!tarefaAtual) {
+            return
+        }
 
-  setTarefas(anteriores =>
-    anteriores.map(tarefa =>
-      tarefa.id === idEditando
-        ? {
-            ...tarefa,
-            titulo: novaTarefa.trim(),
-            prioridade: prioridade,
-            prazo: prazo
-          }
-        : tarefa
-    )
-  )
+        const novaSituacao = !Boolean(tarefaAtual.concluida)
 
-  setIdEditando(null)
-  setNovaTarefa('')
-  setPrioridade('media')
-  setPrazo('')
-}
+        try {
+            const resposta = await fetch(`${API_URL}/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    titulo: tarefaAtual.titulo,
+                    prioridade: tarefaAtual.prioridade,
+                    prazo: tarefaAtual.prazo,
+                    concluida: novaSituacao
+                })
+            })
 
-  return (
-     <div className="container">
+            if (!resposta.ok) {
+                throw new Error('Erro ao atualizar tarefa.')
+            }
 
-      <aside className="sidebar">
-        <h2>TaskFlow</h2>
+            setTarefas(anteriores =>
+                anteriores.map(tarefa =>
+                    tarefa.id === id
+                        ? { ...tarefa, concluida: novaSituacao }
+                        : tarefa
+                )
+            )
 
-        <nav>
-          <a href="#dashboard">Dashboard</a>
-          <a href="#tarefas">Minhas tarefas</a>
-          
-        </nav>
-      </aside>
+        } catch (erro) {
+            console.error(erro)
+            alert('Não foi possível atualizar a tarefa.')
+        }
+    }
 
-      <main className="main">
 
-        <header className="header">
-          <h1>Olá, seja bem-vinda!</h1>
-          <p>Organize suas tarefas e acompanhe seu progresso.</p>
-        </header>
+    // Excluir tarefa
+    async function excluirTarefa(id) {
 
-      
-        <section className="resumo" id='dashboard'>
+        const confirmar = window.confirm(
+            'Tem certeza que deseja excluir esta tarefa?'
+        )
 
-          <div className="card">
-            <h3>Total de tarefas</h3>
-            <p>{tarefas.length}</p>
-          </div>
+        if (!confirmar) {
+            return
+        }
 
-          <div className="card">
-            <h3>Pendentes</h3>
-            <p>{pendentes}</p>
-          </div>
+        try {
+            const resposta = await fetch(`${API_URL}/${id}`, {
+                method: 'DELETE'
+            })
 
-          <div className="card">
-            <h3>Concluídas</h3>
-            <p>{concluidas}</p>
-          </div>
+            if (!resposta.ok) {
+                throw new Error('Erro ao excluir tarefa.')
+            }
 
-        </section>
+            setTarefas(anteriores =>
+                anteriores.filter(tarefa => tarefa.id !== id)
+            )
 
-       
-        <section className="tarefas" id='tarefas'>
+        } catch (erro) {
+            console.error(erro)
+            alert('Não foi possível excluir a tarefa.')
+        }
+    }
 
-          <h2>Minhas tarefas</h2>
 
-          <form onSubmit={idEditando !== null ? salvarEdicao : adicionarTarefa}>
+    // Selecionar tarefa para edição
+    function editarTarefa(tarefa) {
+        setIdEditando(tarefa.id)
+        setNovaTarefa(tarefa.titulo)
+        setPrioridade(tarefa.prioridade)
+        setPrazo(tarefa.prazo || '')
+    }
 
-            <input
-              type="text"
-              placeholder="Digite uma nova tarefa..."
-              value={novaTarefa}
-              onChange={e => setNovaTarefa(e.target.value)}
-            />
 
-            <select
-              value={prioridade}
-              onChange={e => setPrioridade(e.target.value)}
-            >
-              <option value="baixa">Prioridade baixa</option>
-              <option value="media">Prioridade média</option>
-              <option value="alta">Prioridade alta</option>
-            </select>
+    // Salvar edição
+    async function salvarEdicao(e) {
+        e.preventDefault()
 
-            <input
-              type="date"
-              value={prazo}
-              onChange={e => setPrazo(e.target.value)}
-            />
+        if (!novaTarefa.trim()) {
+            return
+        }
 
-            <button type="submit">
-              {idEditando !==null ? 'Salvar alterações' : 'Adicionar tarefa'}
-            </button>
+        const tarefaAtual = tarefas.find(
+            tarefa => tarefa.id === idEditando
+        )
 
-          </form>
+        if (!tarefaAtual) {
+            return
+        }
 
-         
-          <div className="filtros">
+        try {
+            const resposta = await fetch(`${API_URL}/${idEditando}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    titulo: novaTarefa.trim(),
+                    prioridade,
+                    prazo: prazo || null,
+                    concluida: Boolean(tarefaAtual.concluida)
+                })
+            })
 
-            <select
-              value={filtroStatus}
-              onChange={e => setFiltroStatus(e.target.value)}
-            >
-              <option value="todas">Todas as tarefas</option>
-              <option value="pendentes">Pendentes</option>
-              <option value="concluidas">Concluídas</option>
-            </select>
+            if (!resposta.ok) {
+                throw new Error('Erro ao editar tarefa.')
+            }
 
-            <select
-              value={filtroPrioridade}
-              onChange={e => setFiltroPrioridade(e.target.value)}
-            >
-              <option value="todas">Todas as prioridades</option>
-              <option value="baixa">Baixa</option>
-              <option value="media">Média</option>
-              <option value="alta">Alta</option>
-            </select>
+            setTarefas(anteriores =>
+                anteriores.map(tarefa =>
+                    tarefa.id === idEditando
+                        ? {
+                            ...tarefa,
+                            titulo: novaTarefa.trim(),
+                            prioridade,
+                            prazo: prazo || null
+                        }
+                        : tarefa
+                )
+            )
 
-          </div>
+            limparFormulario()
 
-         
-          <div className="lista-tarefas">
+        } catch (erro) {
+            console.error(erro)
+            alert('Não foi possível editar a tarefa.')
+        }
+    }
 
-            {tarefasFiltradas.length === 0 ? (
 
-              <p>Nenhuma tarefa encontrada.</p>
+    // Indicadores do Dashboard
+    const concluidas = tarefas.filter(
+        tarefa => Boolean(tarefa.concluida)
+    ).length
 
-            ) : (
+    const pendentes = tarefas.length - concluidas
 
-              tarefasFiltradas.map(tarefa => (
 
-                <div className="item-tarefa" key={tarefa.id}>
+    // Filtrar tarefas
+    const tarefasFiltradas = tarefas.filter(tarefa => {
 
-                  <div className="informacoes-tarefa">
+        const correspondeStatus =
+            filtroStatus === 'todas' ||
+            (filtroStatus === 'pendentes' && !Boolean(tarefa.concluida)) ||
+            (filtroStatus === 'concluidas' && Boolean(tarefa.concluida))
 
-                    <span className={
-                      tarefa.concluida ? 'concluida' : ''
-                    }>
-                      {tarefa.titulo}
-                    </span>
+        const correspondePrioridade =
+            filtroPrioridade === 'todas' ||
+            tarefa.prioridade === filtroPrioridade
 
-                    <div className="detalhes-tarefa">
+        return correspondeStatus && correspondePrioridade
+    })
 
-                      <span className={`prioridade ${tarefa.prioridade}`}>
-                        {tarefa.prioridade === 'baixa' ? 'Baixa' :
-                         tarefa.prioridade === 'media' ? 'Média' : 'Alta'}
-                      </span>
 
-                      {tarefa.prazo && (
-                        <span className="prazo">
-                          Prazo: {tarefa.prazo.split('-').reverse().join('/')}
-                        </span>
-                      )}
+    // Interface
+    return (
+        <div className="container">
+
+            <aside className="sidebar">
+
+                <h2>TaskFlow</h2>
+
+                <nav>
+                    <a href="#dashboard">Dashboard</a>
+                    <a href="#tarefas">Minhas tarefas</a>
+                </nav>
+
+            </aside>
+
+
+            <main className="main">
+
+                <header className="header">
+                    <h1>Olá, seja bem-vinda!</h1>
+                    <p>
+                        Organize suas tarefas e acompanhe seu progresso.
+                    </p>
+                </header>
+
+
+                {/* Dashboard */}
+                <section className="resumo" id="dashboard">
+
+                    <div className="card">
+                        <h3>Total de tarefas</h3>
+                        <p>{tarefas.length}</p>
+                    </div>
+
+                    <div className="card">
+                        <h3>Pendentes</h3>
+                        <p>{pendentes}</p>
+                    </div>
+
+                    <div className="card">
+                        <h3>Concluídas</h3>
+                        <p>{concluidas}</p>
+                    </div>
+
+                </section>
+
+
+                {/* Lista de tarefas */}
+                <section className="tarefas" id="tarefas">
+
+                    <h2>Minhas tarefas</h2>
+
+
+                    {/* Formulário */}
+                    <form onSubmit={idEditando !== null ? salvarEdicao : adicionarTarefa}>
+
+                        <input
+                            type="text"
+                            placeholder="Digite uma nova tarefa..."
+                            value={novaTarefa}
+                            onChange={e => setNovaTarefa(e.target.value)}
+                        />
+
+                        <select
+                            value={prioridade}
+                            onChange={e => setPrioridade(e.target.value)}
+                        >
+                            <option value="baixa">Prioridade baixa</option>
+                            <option value="media">Prioridade média</option>
+                            <option value="alta">Prioridade alta</option>
+                        </select>
+
+                        <input
+                            type="date"
+                            value={prazo}
+                            onChange={e => setPrazo(e.target.value)}
+                        />
+
+                        <button type="submit">
+                            {idEditando !== null
+                                ? 'Salvar alterações'
+                                : 'Adicionar tarefa'}
+                        </button>
+
+                        {idEditando !== null && (
+                            <button
+                                type="button"
+                                onClick={limparFormulario}
+                            >
+                                Cancelar edição
+                            </button>
+                        )}
+
+                    </form>
+
+
+                    {/* Filtros */}
+                    <div className="filtros">
+
+                        <select
+                            value={filtroStatus}
+                            onChange={e => setFiltroStatus(e.target.value)}
+                        >
+                            <option value="todas">Todas as tarefas</option>
+                            <option value="pendentes">Pendentes</option>
+                            <option value="concluidas">Concluídas</option>
+                        </select>
+
+                        <select
+                            value={filtroPrioridade}
+                            onChange={e => setFiltroPrioridade(e.target.value)}
+                        >
+                            <option value="todas">Todas as prioridades</option>
+                            <option value="baixa">Baixa</option>
+                            <option value="media">Média</option>
+                            <option value="alta">Alta</option>
+                        </select>
 
                     </div>
 
-                  </div>
 
-                  <div className="acoes">
+                    {/* Exibição das tarefas */}
+                    <div className="lista-tarefas">
 
-                    <button
-                      type="button"
-                      onClick={() => concluirTarefa(tarefa.id)}
-                    >
-                      {tarefa.concluida ? 'Desfazer' : 'Concluir'}
-                    </button>
+                        {carregando ? (
 
-                    <button
-                      type="button"
-                      onClick={() => excluirTarefa(tarefa.id)}
-                    >
-                      Excluir
-                    </button>
+                            <p>Carregando tarefas...</p>
 
-                    <button
-  type="button"
-  onClick={() => editarTarefa(tarefa)}
->
-  Editar
-</button>
+                        ) : erro ? (
 
-                  </div>
+                            <p>{erro}</p>
 
-                </div>
+                        ) : tarefasFiltradas.length === 0 ? (
 
-              ))
+                            <p>Nenhuma tarefa encontrada.</p>
 
-            )}
+                        ) : (
 
-          </div>
+                            tarefasFiltradas.map(tarefa => (
 
-        </section>
+                                <div
+                                    className="item-tarefa"
+                                    key={tarefa.id}
+                                >
 
-      </main>
+                                    <div className="informacoes-tarefa">
 
-    </div>
-  )
+                                        <span className={
+                                            Boolean(tarefa.concluida)
+                                                ? 'concluida'
+                                                : ''
+                                        }>
+                                            {tarefa.titulo}
+                                        </span>
+
+                                        <div className="detalhes-tarefa">
+
+                                            <span className={`prioridade ${tarefa.prioridade}`}>
+                                                {tarefa.prioridade === 'baixa'
+                                                    ? 'Baixa'
+                                                    : tarefa.prioridade === 'media'
+                                                        ? 'Média'
+                                                        : 'Alta'}
+                                            </span>
+
+                                            {tarefa.prazo && (
+                                                <span className="prazo">
+                                                    Prazo: {String(tarefa.prazo).split('-').reverse().join('/')}
+                                                </span>
+                                            )}
+
+                                        </div>
+
+                                    </div>
+
+
+                                    <div className="acoes">
+
+                                        <button
+                                            type="button"
+                                            onClick={() => concluirTarefa(tarefa.id)}
+                                        >
+                                            {Boolean(tarefa.concluida)
+                                                ? 'Desfazer'
+                                                : 'Concluir'}
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => excluirTarefa(tarefa.id)}
+                                        >
+                                            Excluir
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => editarTarefa(tarefa)}
+                                        >
+                                            Editar
+                                        </button>
+
+                                    </div>
+
+                                </div>
+
+                            ))
+
+                        )}
+
+                    </div>
+
+                </section>
+
+            </main>
+
+        </div>
+    )
 }
 
 export default App
