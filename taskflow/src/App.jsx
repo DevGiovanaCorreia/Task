@@ -5,7 +5,7 @@ import './App.css'
 
 function App() {
 
-    // Estados
+    
     const [tarefas, setTarefas] = useState([])
     const [carregando, setCarregando] = useState(true)
     const [erro, setErro] = useState('')
@@ -19,8 +19,14 @@ function App() {
     const [filtroStatus, setFiltroStatus] = useState('todas')
     const [filtroPrioridade, setFiltroPrioridade] = useState('todas')
 
+    const [mensagem,setMensagem] = useState('')
+    const [tipoMensagem,setTipoMensagem]= useState('')
+    const [salvando,setSalvando]= useState(false)
 
-    // Buscar tarefas no banco de dados
+    const [idParaExcluir, setIdParaExcluir] = useState(null)
+
+
+    
     useEffect(() => {
 
         async function buscarTarefas() {
@@ -48,7 +54,7 @@ function App() {
     }, [])
 
 
-    // Limpar formulário
+    
     function limparFormulario() {
         setIdEditando(null)
         setNovaTarefa('')
@@ -57,120 +63,124 @@ function App() {
     }
 
 
-    // Adicionar tarefa
-    async function adicionarTarefa(e) {
-        e.preventDefault()
+    
+   async function adicionarTarefa(e) {
+    e.preventDefault()
 
-        if (!novaTarefa.trim()) {
-            return
-        }
+    const titulo = novaTarefa.trim()
 
-        try {
-            const resposta = await fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    titulo: novaTarefa.trim(),
-                    prioridade,
-                    prazo: prazo || null
-                })
-            })
-
-            if (!resposta.ok) {
-                throw new Error('Erro ao cadastrar tarefa.')
-            }
-
-            const tarefaSalva = await resposta.json()
-
-            setTarefas(anteriores => [...anteriores, tarefaSalva])
-
-            limparFormulario()
-
-        } catch (erro) {
-            console.error(erro)
-            alert('Não foi possível cadastrar a tarefa.')
-        }
+    
+    if (!titulo) {
+        exibirMensagem('Digite o título da tarefa.','aviso')
+        return
     }
 
+    if (titulo.length > 100) {
+        exibirMensagem('O título deve ter no máximo 100 caracteres.','aviso')
+        return
+    }
 
-    // Concluir ou desfazer tarefa
-    async function concluirTarefa(id) {
+    
+    if (!prioridade) {
+        exibirMensagem('Selecione uma prioridade.','aviso')
+        return
+    }
 
-        const tarefaAtual = tarefas.find(tarefa => tarefa.id === id)
+    
+    if (!prazo) {
+        exibirMensagem('Selecione uma data para a tarefa.','aviso')
+        return
+    }
 
-        if (!tarefaAtual) {
-            return
+    try {
+        setSalvando(true)
+        setMensagem('')
+
+        const resposta = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                titulo,
+                prioridade,
+                prazo
+            })
+        })
+
+        const dados = await resposta.json()
+
+        if (!resposta.ok) {
+            throw new Error(dados.mensagem || 'Erro ao cadastrar tarefa.')
         }
 
-        const novaSituacao = !Boolean(tarefaAtual.concluida)
+        setTarefas(anteriores => [...anteriores, dados])
 
-        try {
-            const resposta = await fetch(`${API_URL}/${id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    titulo: tarefaAtual.titulo,
-                    prioridade: tarefaAtual.prioridade,
-                    prazo: tarefaAtual.prazo,
-                    concluida: novaSituacao
-                })
+        limparFormulario()
+
+        exibirMensagem('Tarefa cadastrada com sucesso!','sucesso')
+
+    } catch (erro) {
+        console.error(erro)
+        setMensagem(erro.message || 'Não foi possível cadastrar a tarefa.')
+    } finally {
+        setSalvando(false)
+    }
+}
+
+
+    
+   async function concluirTarefa(id) {
+    const tarefaAtual = tarefas.find(tarefa => tarefa.id === id)
+
+    if (!tarefaAtual) return
+
+    try {
+        const resposta = await fetch(`${API_URL}/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                concluida: !Boolean(tarefaAtual.concluida)
             })
+        })
 
-            if (!resposta.ok) {
-                throw new Error('Erro ao atualizar tarefa.')
-            }
+        const dados = await resposta.json()
 
-            setTarefas(anteriores =>
-                anteriores.map(tarefa =>
-                    tarefa.id === id
-                        ? { ...tarefa, concluida: novaSituacao }
-                        : tarefa
-                )
+        if (!resposta.ok) {
+            throw new Error(dados.mensagem || 'Erro ao atualizar tarefa.')
+        }
+
+        setTarefas(anteriores =>
+            anteriores.map(tarefa =>
+                tarefa.id === id
+                    ? { ...tarefa, concluida: !Boolean(tarefa.concluida) }
+                    : tarefa
             )
-
-        } catch (erro) {
-            console.error(erro)
-            alert('Não foi possível atualizar a tarefa.')
-        }
-    }
-
-
-    // Excluir tarefa
-    async function excluirTarefa(id) {
-
-        const confirmar = window.confirm(
-            'Tem certeza que deseja excluir esta tarefa?'
         )
 
-        if (!confirmar) {
-            return
-        }
+        exibirMensagem(
+            tarefaAtual.concluida
+                ? 'Tarefa marcada como pendente!'
+                : 'Tarefa concluída com sucesso!',
+            'sucesso'
+        )
 
-        try {
-            const resposta = await fetch(`${API_URL}/${id}`, {
-                method: 'DELETE'
-            })
-
-            if (!resposta.ok) {
-                throw new Error('Erro ao excluir tarefa.')
-            }
-
-            setTarefas(anteriores =>
-                anteriores.filter(tarefa => tarefa.id !== id)
-            )
-
-        } catch (erro) {
-            console.error(erro)
-            alert('Não foi possível excluir a tarefa.')
-        }
+    } catch (erro) {
+        console.error(erro)
+        exibirMensagem(
+            erro.message || 'Não foi possível atualizar a tarefa.',
+            'erro'
+        )
     }
+}
 
 
-    // Selecionar tarefa para edição
+    
+
+
+    
     function editarTarefa(tarefa) {
         setIdEditando(tarefa.id)
         setNovaTarefa(tarefa.titulo)
@@ -179,63 +189,81 @@ function App() {
     }
 
 
-    // Salvar edição
+    
     async function salvarEdicao(e) {
-        e.preventDefault()
+    e.preventDefault()
 
-        if (!novaTarefa.trim()) {
-            return
-        }
-
-        const tarefaAtual = tarefas.find(
-            tarefa => tarefa.id === idEditando
-        )
-
-        if (!tarefaAtual) {
-            return
-        }
-
-        try {
-            const resposta = await fetch(`${API_URL}/${idEditando}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    titulo: novaTarefa.trim(),
-                    prioridade,
-                    prazo: prazo || null,
-                    concluida: Boolean(tarefaAtual.concluida)
-                })
-            })
-
-            if (!resposta.ok) {
-                throw new Error('Erro ao editar tarefa.')
-            }
-
-            setTarefas(anteriores =>
-                anteriores.map(tarefa =>
-                    tarefa.id === idEditando
-                        ? {
-                            ...tarefa,
-                            titulo: novaTarefa.trim(),
-                            prioridade,
-                            prazo: prazo || null
-                        }
-                        : tarefa
-                )
-            )
-
-            limparFormulario()
-
-        } catch (erro) {
-            console.error(erro)
-            alert('Não foi possível editar a tarefa.')
-        }
+    if (!novaTarefa.trim()) {
+        exibirMensagem('Digite o título da tarefa.', 'aviso')
+        return
     }
 
+    if (novaTarefa.trim().length > 100) {
+        exibirMensagem('O título deve ter no máximo 100 caracteres.', 'aviso')
+        return
+    }
 
-    // Indicadores do Dashboard
+    const tarefaAtual = tarefas.find(
+        tarefa => tarefa.id === idEditando
+    )
+
+    if (!tarefaAtual) {
+        return
+    }
+
+    try {
+        setSalvando(true)
+
+        const resposta = await fetch(`${API_URL}/${idEditando}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                titulo: novaTarefa.trim(),
+                prioridade,
+                prazo: prazo || null,
+                concluida: Boolean(tarefaAtual.concluida)
+            })
+        })
+
+        const dados = await resposta.json()
+
+        if (!resposta.ok) {
+            throw new Error(dados.mensagem || 'Erro ao editar tarefa.')
+        }
+
+        setTarefas(anteriores =>
+            anteriores.map(tarefa =>
+                tarefa.id === idEditando
+                    ? {
+                        ...tarefa,
+                        titulo: novaTarefa.trim(),
+                        prioridade,
+                        prazo: prazo || null
+                    }
+                    : tarefa
+            )
+        )
+
+        limparFormulario()
+
+        exibirMensagem('Tarefa editada com sucesso!', 'sucesso')
+
+    } catch (erro) {
+        console.error(erro)
+
+        exibirMensagem(
+            erro.message || 'Não foi possível editar a tarefa.',
+            'erro'
+        )
+
+    } finally {
+        setSalvando(false)
+    }
+}
+
+    
     const concluidas = tarefas.filter(
         tarefa => Boolean(tarefa.concluida)
     ).length
@@ -243,7 +271,7 @@ function App() {
     const pendentes = tarefas.length - concluidas
 
 
-    // Filtrar tarefas
+    
     const tarefasFiltradas = tarefas.filter(tarefa => {
 
         const correspondeStatus =
@@ -258,8 +286,49 @@ function App() {
         return correspondeStatus && correspondePrioridade
     })
 
+    function exibirMensagem(texto, tipo = 'sucesso') {
+    setMensagem(texto)
+    setTipoMensagem(tipo)
+}
 
-    // Interface
+function excluirTarefa(id) {
+    setIdParaExcluir(id)
+}
+
+async function confirmarExclusao() {
+    try {
+        const resposta = await fetch(`${API_URL}/${idParaExcluir}`, {
+            method: 'DELETE'
+        })
+
+        const dados = await resposta.json()
+
+        if (!resposta.ok) {
+            throw new Error(dados.mensagem || 'Erro ao excluir tarefa.')
+        }
+
+        setTarefas(anteriores =>
+            anteriores.filter(tarefa => tarefa.id !== idParaExcluir)
+        )
+
+        setIdParaExcluir(null)
+
+        exibirMensagem('Tarefa excluída com sucesso!', 'sucesso')
+
+    } catch (erro) {
+        console.error(erro)
+
+        setIdParaExcluir(null)
+
+        exibirMensagem(
+            erro.message || 'Não foi possível excluir a tarefa.',
+            'erro'
+        )
+    }
+}
+
+
+    
     return (
         <div className="container">
 
@@ -306,56 +375,83 @@ function App() {
                 </section>
 
 
-                {/* Lista de tarefas */}
+                
                 <section className="tarefas" id="tarefas">
 
                     <h2>Minhas tarefas</h2>
 
 
-                    {/* Formulário */}
-                    <form onSubmit={idEditando !== null ? salvarEdicao : adicionarTarefa}>
+                    
+                   <form onSubmit={idEditando !== null ? salvarEdicao : adicionarTarefa}>
 
-                        <input
-                            type="text"
-                            placeholder="Digite uma nova tarefa..."
-                            value={novaTarefa}
-                            onChange={e => setNovaTarefa(e.target.value)}
-                        />
+    <input
+        type="text"
+        placeholder="Digite uma nova tarefa..."
+        value={novaTarefa}
+        onChange={e => setNovaTarefa(e.target.value)}
+    />
 
-                        <select
-                            value={prioridade}
-                            onChange={e => setPrioridade(e.target.value)}
-                        >
-                            <option value="baixa">Prioridade baixa</option>
-                            <option value="media">Prioridade média</option>
-                            <option value="alta">Prioridade alta</option>
-                        </select>
+    <select
+        value={prioridade}
+        onChange={e => setPrioridade(e.target.value)}
+    >
+        <option value="baixa">Prioridade baixa</option>
+        <option value="media">Prioridade média</option>
+        <option value="alta">Prioridade alta</option>
+    </select>
 
-                        <input
-                            type="date"
-                            value={prazo}
-                            onChange={e => setPrazo(e.target.value)}
-                        />
+    <input
+        type="date"
+        value={prazo}
+        onChange={e => setPrazo(e.target.value)}
+        
+    />
 
-                        <button type="submit">
-                            {idEditando !== null
-                                ? 'Salvar alterações'
-                                : 'Adicionar tarefa'}
-                        </button>
+    <button type="submit" disabled={salvando}>
+        {salvando
+            ? 'Salvando...'
+            : idEditando !== null
+                ? 'Salvar alterações'
+                : 'Adicionar tarefa'}
+    </button>
 
-                        {idEditando !== null && (
-                            <button
-                                type="button"
-                                onClick={limparFormulario}
-                            >
-                                Cancelar edição
-                            </button>
-                        )}
+    {idEditando !== null && (
+        <button
+            type="button"
+            onClick={limparFormulario}
+        >
+            Cancelar edição
+        </button>
+    )}
 
-                    </form>
+    {mensagem && (
+        <div
+            className={`notificacao ${tipoMensagem}`}
+            role="alert"
+        >
+            <span className="notificacao-icone">
+                {tipoMensagem === 'sucesso' && '✓'}
+                {tipoMensagem === 'erro' && '✕'}
+                {tipoMensagem === 'aviso' && '⚠'}
+            </span>
+
+            <span>{mensagem}</span>
+
+            <button
+                type="button"
+                className="fechar-notificacao"
+                onClick={() => setMensagem('')}
+                aria-label="Fechar notificação"
+            >
+                ×
+            </button>
+        </div>
+    )}
+
+</form> 
 
 
-                    {/* Filtros */}
+                    
                     <div className="filtros">
 
                         <select
@@ -380,8 +476,11 @@ function App() {
                     </div>
 
 
-                    {/* Exibição das tarefas */}
+                    
                     <div className="lista-tarefas">
+
+                  
+
 
                         {carregando ? (
 
@@ -474,7 +573,43 @@ function App() {
 
             </main>
 
+
+ { idParaExcluir !== null && (
+    <div className="modal-overlay">
+        <div className="modal-confirmacao">
+            <div className="modal-icone">!</div>
+
+            <h3>Excluir tarefa?</h3>
+
+            <p>
+                Tem certeza que deseja excluir esta tarefa?
+                Essa ação não poderá ser desfeita.
+            </p>
+
+            <div className="modal-acoes">
+                <button
+                    type="button"
+                    className="btn-cancelar"
+                    onClick={() => setIdParaExcluir(null)}
+                >
+                    Cancelar
+                </button>
+
+                <button
+                    type="button"
+                    className="btn-excluir"
+                    onClick={confirmarExclusao}
+                >
+                    Sim, excluir
+                </button>
+            </div>
         </div>
+    </div>
+)}
+
+        </div>
+
+       
     )
 }
 

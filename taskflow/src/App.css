@@ -461,3 +461,161 @@ form button:hover {
 
 
 
+.notificacao {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    border: 1px solid;
+    border-left: 5px solid;
+    animation: aparecer 0.3s ease;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+.notificacao-icone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.notificacao.sucesso {
+    background: #eef2ff;
+    color: #3730a3;
+    border-color: #a5b4fc;
+    border-left-color: #4338ca;
+}
+
+.notificacao.sucesso .notificacao-icone {
+    background: #4338ca;
+    color: white;
+}
+
+.notificacao.erro {
+    background: #fff1f2;
+    color: #be123c;
+    border-color: #fda4af;
+    border-left-color: #e11d48;
+}
+
+.notificacao.erro .notificacao-icone {
+    background: #e11d48;
+    color: white;
+}
+
+.notificacao.aviso {
+    background: #fffbeb;
+    color: #92400e;
+    border-color: #fcd34d;
+    border-left-color: #d97706;
+}
+
+.notificacao.aviso .notificacao-icone {
+    background: #d97706;
+    color: white;
+}
+
+.fechar-notificacao {
+    margin-left: auto;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: 22px;
+    cursor: pointer;
+}
+
+@keyframes aparecer {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.modal-confirmacao {
+    background: #ffffff;
+    width: 100%;
+    max-width: 400px;
+    padding: 28px;
+    border-radius: 14px;
+    text-align: center;
+    border: 1px solid #e0e7ff;
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.15);
+}
+
+.modal-icone {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 15px;
+    border-radius: 50%;
+    background: #fff1f2;
+    color: #e11d48;
+    border: 1px solid #fda4af;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 25px;
+    font-weight: bold;
+}
+
+.modal-confirmacao h3 {
+    color: #1e1b4b;
+    margin-bottom: 10px;
+}
+
+.modal-confirmacao p {
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+.modal-acoes {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.modal-acoes button {
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    border: 1px solid;
+}
+
+.btn-cancelar {
+    background: #eef2ff;
+    color: #4338ca;
+    border-color: #c7d2fe !important;
+}
+
+.btn-excluir {
+    background: #e11d48;
+    color: white;
+    border-color: #e11d48 !important;
+}
